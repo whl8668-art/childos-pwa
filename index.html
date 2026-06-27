@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f7f3ea">
+  <meta name="description" content="ChildOS 最小行动卡验证页面">
+  <link rel="manifest" href='data:application/manifest+json,{"name":"ChildOS Action","short_name":"ChildOS","start_url":".","display":"standalone","background_color":"#f7f3ea","theme_color":"#f7f3ea","icons":[]}'>
+  <title>ChildOS 最小行动卡</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f3ea;
+      --panel: #fffdf8;
+      --text: #24211d;
+      --muted: #6d665d;
+      --line: #ddd3c4;
+      --accent: #2f6f73;
+      --accent-dark: #245b5e;
+      --shadow: 0 14px 35px rgba(54, 44, 31, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    main {
+      width: min(680px, 100%);
+      margin: 0 auto;
+      padding: 28px 16px 40px;
+    }
+
+    header {
+      margin-bottom: 22px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.55;
+    }
+
+    .panel,
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .panel {
+      padding: 16px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 170px;
+      resize: vertical;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 13px 14px;
+      font: inherit;
+      font-size: 16px;
+      line-height: 1.55;
+      color: var(--text);
+      background: #fff;
+      outline: none;
+    }
+
+    textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(47, 111, 115, 0.16);
+    }
+
+    button {
+      width: 100%;
+      min-height: 48px;
+      margin-top: 12px;
+      border: 0;
+      border-radius: 8px;
+      padding: 12px 16px;
+      font: inherit;
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+      background: var(--accent);
+      cursor: pointer;
+    }
+
+    button:active {
+      background: var(--accent-dark);
+      transform: translateY(1px);
+    }
+
+    .card {
+      margin-top: 16px;
+      padding: 18px;
+    }
+
+    .card[hidden] {
+      display: none;
+    }
+
+    .card-title {
+      margin-bottom: 10px;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .action {
+      margin: 0;
+      font-size: 24px;
+      line-height: 1.35;
+      font-weight: 800;
+    }
+
+    .reason {
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 420px) {
+      main {
+        padding-top: 22px;
+      }
+
+      h1 {
+        font-size: 24px;
+      }
+
+      .action {
+        font-size: 22px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>ChildOS 最小行动卡</h1>
+      <p>输入今天的一个真实场景，页面只生成一个行动。</p>
+    </header>
+
+    <section class="panel" aria-label="场景输入">
+      <label for="scene">今天发生了什么？</label>
+      <textarea id="scene" placeholder="例如：今天作业拖了很久，妈妈有点焦虑。"></textarea>
+      <button id="generate" type="button">生成唯一行动</button>
+    </section>
+
+    <section id="result" class="card" aria-live="polite" hidden>
+      <div class="card-title">唯一行动</div>
+      <p id="action" class="action"></p>
+      <p id="reason" class="reason"></p>
+    </section>
+  </main>
+
+  <script>
+    const rules = [
+      { keyword: "作业", action: "只完成作业" },
+      { keyword: "英语", action: "只做一句英语输出" },
+      { keyword: "复习", action: "只做一个知识点" },
+      { keyword: "焦虑", action: "先暂停10分钟" }
+    ];
+
+    const sceneInput = document.getElementById("scene");
+    const generateButton = document.getElementById("generate");
+    const resultCard = document.getElementById("result");
+    const actionText = document.getElementById("action");
+    const reasonText = document.getElementById("reason");
+
+    function getSingleAction(text) {
+      const matchedRule = rules.find((rule) => text.includes(rule.keyword));
+
+      if (matchedRule) {
+        return {
+          action: matchedRule.action,
+          reason: `命中关键词：“${matchedRule.keyword}”。`
+        };
+      }
+
+      return {
+        action: "只记录一个事实",
+        reason: "没有命中内置关键词，先保持最小记录。"
+      };
+    }
+
+    function renderAction() {
+      const text = sceneInput.value.trim();
+      const result = getSingleAction(text);
+
+      actionText.textContent = result.action;
+      reasonText.textContent = result.reason;
+      resultCard.hidden = false;
+    }
+
+    generateButton.addEventListener("click", renderAction);
+
+    if ("serviceWorker" in navigator && location.protocol !== "file:") {
+      const swCode = `
+        self.addEventListener("install", (event) => self.skipWaiting());
+        self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
+        self.addEventListener("fetch", (event) => event.respondWith(fetch(event.request)));
+      `;
+      const swUrl = URL.createObjectURL(new Blob([swCode], { type: "text/javascript" }));
+      navigator.serviceWorker.register(swUrl).catch(() => {});
+    }
+  </script>
+</body>
+</html>
