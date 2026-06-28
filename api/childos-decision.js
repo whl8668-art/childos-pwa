@@ -52,7 +52,7 @@ const REQUIRED_CARD_KEYS = [
   "review_point"
 ];
 
-function parseJsonBody(request) {
+function readRequestBody(request) {
   return new Promise((resolve, reject) => {
     let rawBody = "";
 
@@ -64,16 +64,18 @@ function parseJsonBody(request) {
       }
     });
 
-    request.on("end", () => {
-      try {
-        resolve(rawBody ? JSON.parse(rawBody) : {});
-      } catch (error) {
-        reject(new Error("Invalid JSON body"));
-      }
-    });
-
+    request.on("end", () => resolve(rawBody));
     request.on("error", reject);
   });
+}
+
+async function parseJsonBody(request) {
+  const rawBody = await readRequestBody(request);
+  try {
+    return rawBody ? JSON.parse(rawBody) : {};
+  } catch (error) {
+    throw new Error("Invalid JSON body");
+  }
 }
 
 function sendJson(response, statusCode, payload) {
@@ -91,13 +93,19 @@ function extractTextFromAgnes(payload) {
   if (typeof payload.text === "string") return payload.text;
 
   const choice = Array.isArray(payload.choices) ? payload.choices[0] : null;
-  if (choice?.message?.content) return choice.message.content;
-  if (choice?.text) return choice.text;
+  if (typeof choice?.message?.content === "string") return choice.message.content;
+  if (typeof choice?.text === "string") return choice.text;
 
   if (Array.isArray(payload.output)) {
     return payload.output
       .flatMap((item) => item.content || [])
       .map((item) => item.text || "")
+      .join("");
+  }
+
+  if (Array.isArray(payload.data)) {
+    return payload.data
+      .map((item) => item.text || item.content || "")
       .join("");
   }
 
@@ -125,6 +133,10 @@ function parseAgnesCard(payload) {
     return normalizeCard(payload);
   }
 
+  if (payload?.card && REQUIRED_CARD_KEYS.every((key) => key in payload.card)) {
+    return normalizeCard(payload.card);
+  }
+
   const text = extractTextFromAgnes(payload).trim();
   if (!text) {
     throw new Error("Agnes response is empty");
@@ -140,15 +152,20 @@ function parseAgnesCard(payload) {
 }
 
 async function callAgnes(scene) {
-  if (!AGNES_API_URL || !AGNES_API_KEY) {
-    throw new Error("AGNES_API_URL or AGNES_API_KEY is not configured");
+  if (!AGNES_API_URL) {
+    throw new Error("AGNES_API_URL is not configured");
+  }
+
+  if (!AGNES_API_KEY) {
+    throw new Error("AGNES_API_KEY is not configured");
   }
 
   const agnesResponse = await fetch(AGNES_API_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${AGNES_API_KEY}`
+      "Authorization": `Bearer ${AGNES_API_KEY}`,
+      "X-API-Key": AGNES_API_KEY
     },
     body: JSON.stringify({
       model: AGNES_MODEL,
@@ -160,11 +177,20 @@ async function callAgnes(scene) {
     })
   });
 
+  const rawAgnesBody = await agnesResponse.text();
+  let agnesPayload = null;
+
+  try {
+    agnesPayload = rawAgnesBody ? JSON.parse(rawAgnesBody) : null;
+  } catch (error) {
+    agnesPayload = rawAgnesBody;
+  }
+
   if (!agnesResponse.ok) {
     throw new Error(`Agnes API failed with ${agnesResponse.status}`);
   }
 
-  return parseAgnesCard(await agnesResponse.json());
+  return parseAgnesCard(agnesPayload);
 }
 
 module.exports = async function handler(request, response) {
@@ -185,6 +211,7 @@ module.exports = async function handler(request, response) {
     return sendJson(response, 200, { source: "ai", card });
   } catch (error) {
     return sendJson(response, 502, {
+      source: "error",
       error: "AI decision unavailable",
       detail: error.message
     });

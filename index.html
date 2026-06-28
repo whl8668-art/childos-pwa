@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#f6f1e8">
-  <meta name="description" content="ChildOS v2.5 行动决策器">
+  <meta name="description" content="ChildOS v2.5 AI 行动决策器">
   <link rel="manifest" href='data:application/manifest+json,{"name":"ChildOS Decision","short_name":"ChildOS","start_url":".","display":"standalone","background_color":"#f6f1e8","theme_color":"#f6f1e8","icons":[]}'>
   <title>ChildOS 行动决策器</title>
   <style>
@@ -18,6 +18,7 @@
       --accent: #2f6f73;
       --accent-dark: #245b5e;
       --warning: #8a4b1f;
+      --error: #9a2f2f;
       --shadow: 0 12px 30px rgba(53, 43, 30, 0.1);
     }
 
@@ -164,9 +165,18 @@
       line-height: 1.5;
     }
 
+    .status.error {
+      color: var(--error);
+      font-weight: 700;
+    }
+
     .result-panel {
       margin-top: 16px;
       padding: 16px;
+    }
+
+    .result-panel[hidden] {
+      display: none;
     }
 
     .result-grid {
@@ -251,31 +261,31 @@
       <label id="scene-title" for="scene">现在发生了什么？</label>
       <textarea id="scene" autocomplete="off" placeholder="例如：孩子作业没完成，我有点着急"></textarea>
       <button id="generate" type="button">生成行动决策</button>
-      <div id="status" class="status" aria-live="polite">当前使用：等待输入</div>
+      <div id="status" class="status" aria-live="polite">当前使用：等待 AI 生成</div>
     </section>
 
-    <section class="result-panel" aria-labelledby="result-title" aria-live="polite">
+    <section id="result" class="result-panel" aria-labelledby="result-title" aria-live="polite" hidden>
       <h2 id="result-title">行动决策卡</h2>
       <div class="result-grid">
         <div class="result-item">
           <div class="result-label">当前判断：</div>
-          <div id="current_judgment" class="result-text">输入场景后生成。</div>
+          <div id="current_judgment" class="result-text"></div>
         </div>
         <div class="result-item">
           <div class="result-label">现在只做：</div>
-          <div id="one_action" class="result-text">先收敛成一个动作。</div>
+          <div id="one_action" class="result-text"></div>
         </div>
         <div class="result-item">
           <div class="result-label">不要做：</div>
-          <div id="do_not_do" class="result-text">不要扩大化处理。</div>
+          <div id="do_not_do" class="result-text"></div>
         </div>
         <div class="result-item">
           <div class="result-label">对孩子说：</div>
-          <div id="say_to_child" class="result-text">用短句，不追责。</div>
+          <div id="say_to_child" class="result-text"></div>
         </div>
         <div class="result-item">
           <div class="result-label">复盘点：</div>
-          <div id="review_point" class="result-text">只看下一次能否少一步冲动。</div>
+          <div id="review_point" class="result-text"></div>
         </div>
       </div>
     </section>
@@ -285,6 +295,7 @@
     const sceneInput = document.getElementById("scene");
     const generateButton = document.getElementById("generate");
     const statusText = document.getElementById("status");
+    const resultPanel = document.getElementById("result");
     const fields = {
       current_judgment: document.getElementById("current_judgment"),
       one_action: document.getElementById("one_action"),
@@ -292,74 +303,6 @@
       say_to_child: document.getElementById("say_to_child"),
       review_point: document.getElementById("review_point")
     };
-
-    const fallbackCards = {
-      empty: {
-        current_judgment: "先把场景说清楚，不急着判断孩子。",
-        one_action: "写下现在最需要处理的一件事。",
-        do_not_do: "不要在信息不清楚时开始说教。",
-        say_to_child: "我先停一下，想清楚现在只处理哪一件事。",
-        review_point: "复盘这次有没有先停住。"
-      },
-      safety: {
-        current_judgment: "现在先处理安全，其他事情都后放。",
-        one_action: "立刻让孩子离开危险物或危险位置。",
-        do_not_do: "不要一边责备一边处理危险。",
-        say_to_child: "先停下，到我身边来。安全处理完，我们再说下一步。",
-        review_point: "复盘危险源下次能否提前移走。"
-      },
-      conflict: {
-        current_judgment: "已经进入冲突，先停止追责。",
-        one_action: "暂停争论，给双方三分钟降温。",
-        do_not_do: "不要继续证明谁对谁错。",
-        say_to_child: "我先暂停一下，不继续吵。三分钟后我们只说下一步怎么做。",
-        review_point: "复盘有没有在冲突升级前停住。"
-      },
-      learning: {
-        current_judgment: "现在目标是保底完成最小学习任务。",
-        one_action: "选一个最小任务，先做十分钟。",
-        do_not_do: "不要追加整套复习计划。",
-        say_to_child: "我们先不谈全部，只做十分钟最小任务。做完就停一下。",
-        review_point: "复盘最小任务是否足够明确。"
-      },
-      anxious: {
-        current_judgment: "妈妈的焦虑正在放大任务。",
-        one_action: "先喝水或坐下，暂停三十秒再说一句短指令。",
-        do_not_do: "不要把今天变成全面纠偏。",
-        say_to_child: "我有点着急，先慢下来。现在我们只处理一件小事。",
-        review_point: "复盘这次有没有把期待缩小。"
-      },
-      default: {
-        current_judgment: "现在需要恢复一点秩序，不需要解决全部问题。",
-        one_action: "选一个能在五分钟内开始的小动作。",
-        do_not_do: "不要同时谈态度、成绩和习惯。",
-        say_to_child: "我们先做一个很小的开始，做完再看下一步。",
-        review_point: "复盘这个动作是否真的足够小。"
-      }
-    };
-
-    function pickFallbackCard(scene) {
-      const text = scene.trim();
-      if (!text) return fallbackCards.empty;
-
-      if (/危险|受伤|刀|火|电|摔|撞|血|烫|走丢|马路|安全/.test(text)) {
-        return fallbackCards.safety;
-      }
-
-      if (/吵|冲突|发火|哭|崩溃|顶嘴|喊|骂|摔|生气/.test(text)) {
-        return fallbackCards.conflict;
-      }
-
-      if (/焦虑|着急|忍不住|控制不住|爆炸|烦|急/.test(text)) {
-        return fallbackCards.anxious;
-      }
-
-      if (/作业|复习|考试|学校|课外班|练习|背|读|写|题/.test(text)) {
-        return fallbackCards.learning;
-      }
-
-      return fallbackCards.default;
-    }
 
     function isValidCard(card) {
       return card
@@ -374,6 +317,14 @@
       Object.entries(fields).forEach(([key, element]) => {
         element.textContent = card[key];
       });
+      resultPanel.hidden = false;
+    }
+
+    function clearCard() {
+      Object.values(fields).forEach((element) => {
+        element.textContent = "";
+      });
+      resultPanel.hidden = true;
     }
 
     async function requestAiCard(scene) {
@@ -383,13 +334,14 @@
         body: JSON.stringify({ scene })
       });
 
+      const payload = await response.json().catch(() => null);
+
       if (!response.ok) {
-        throw new Error("AI service unavailable");
+        throw new Error(payload?.detail || payload?.error || "AI service unavailable");
       }
 
-      const payload = await response.json();
-      if (payload.source !== "ai" || !isValidCard(payload.card)) {
-        throw new Error("Invalid AI response");
+      if (payload?.source !== "ai" || !isValidCard(payload.card)) {
+        throw new Error("AI response shape is invalid");
       }
 
       return payload.card;
@@ -397,17 +349,26 @@
 
     async function generateDecision() {
       const scene = sceneInput.value.trim();
+      clearCard();
+      statusText.classList.remove("error");
+
+      if (!scene) {
+        statusText.textContent = "请先输入一个场景。";
+        statusText.classList.add("error");
+        return;
+      }
+
       generateButton.disabled = true;
       generateButton.textContent = "生成中，请稍等...";
-      statusText.textContent = "生成中，请稍等...";
+      statusText.textContent = "当前使用：AI 决策生成中";
 
       try {
         const card = await requestAiCard(scene);
         renderCard(card);
         statusText.textContent = "当前使用：AI 决策";
       } catch (error) {
-        renderCard(pickFallbackCard(scene));
-        statusText.textContent = "当前使用：本地规则回退";
+        statusText.textContent = `AI 调用失败：${error.message}`;
+        statusText.classList.add("error");
       } finally {
         generateButton.disabled = false;
         generateButton.textContent = "生成行动决策";
@@ -415,16 +376,6 @@
     }
 
     generateButton.addEventListener("click", generateDecision);
-
-    if ("serviceWorker" in navigator && location.protocol !== "file:") {
-      const swCode = `
-        self.addEventListener("install", () => self.skipWaiting());
-        self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
-        self.addEventListener("fetch", (event) => event.respondWith(fetch(event.request)));
-      `;
-      const swUrl = URL.createObjectURL(new Blob([swCode], { type: "text/javascript" }));
-      navigator.serviceWorker.register(swUrl).catch(() => {});
-    }
   </script>
 </body>
 </html>
