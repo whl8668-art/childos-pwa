@@ -1,3 +1,10 @@
+const fs = require("fs/promises");
+const path = require("path");
+const crypto = require("crypto");
+
+const DATA_DIR = path.join(process.cwd(), "data");
+const DATA_FILE = path.join(DATA_DIR, "lifeos.json");
+
 function sendJson(response, statusCode, payload) {
   response.statusCode = statusCode;
   response.setHeader("Content-Type", "application/json; charset=utf-8");
@@ -16,7 +23,7 @@ function readRequestBody(request) {
       try {
         resolve(JSON.parse(request.body));
       } catch (error) {
-        resolve({ rawBody: request.body });
+        reject(new Error("Invalid JSON body"));
       }
       return;
     }
@@ -28,15 +35,10 @@ function readRequestBody(request) {
     });
 
     request.on("end", () => {
-      if (!rawBody) {
-        resolve({});
-        return;
-      }
-
       try {
-        resolve(JSON.parse(rawBody));
+        resolve(rawBody ? JSON.parse(rawBody) : {});
       } catch (error) {
-        resolve({ rawBody });
+        reject(new Error("Invalid JSON body"));
       }
     });
 
@@ -44,31 +46,62 @@ function readRequestBody(request) {
   });
 }
 
+async function readRecords() {
+  try {
+    const content = await fs.readFile(DATA_FILE, "utf8");
+    const parsed = JSON.parse(content);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return [];
+    }
+
+    throw error;
+  }
+}
+
+async function writeRecords(records) {
+  await fs.mkdir(DATA_DIR, { recursive: true });
+  await fs.writeFile(DATA_FILE, `${JSON.stringify(records, null, 2)}\n`, "utf8");
+}
+
+function buildRecord(body) {
+  return {
+    id: crypto.randomUUID(),
+    timestamp: typeof body.timestamp === "string" && body.timestamp.trim()
+      ? body.timestamp.trim()
+      : new Date().toISOString(),
+    type: body.type || "childos_action",
+    context: body.context || "",
+    short_term_goal: body.short_term_goal || "",
+    decision: body.decision || ""
+  };
+}
+
 module.exports = async function handler(request, response) {
   if (request.method !== "POST") {
-    console.log("[lifeos/write] non-POST request", {
-      method: request.method
-    });
-
-    return sendJson(response, 200, {
-      success: true
+    return sendJson(response, 405, {
+      success: false,
+      error: "Only POST requests are supported"
     });
   }
 
   try {
     const body = await readRequestBody(request);
-    console.log("[lifeos/write] body", body);
+    const record = buildRecord(body);
+    const records = await readRecords();
+
+    records.push(record);
+    await writeRecords(records);
 
     return sendJson(response, 200, {
-      success: true
+      success: true,
+      id: record.id
     });
   } catch (error) {
-    console.log("[lifeos/write] unexpected error", {
-      message: error.message
-    });
-
-    return sendJson(response, 200, {
-      success: true
+    return sendJson(response, 500, {
+      success: false,
+      error: error.message
     });
   }
 };
