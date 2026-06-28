@@ -604,7 +604,22 @@
           throw new Error(payload?.detail || payload?.error || "LifeOS write failed");
         }
 
-        writeStatus.textContent = "已写入 LifeOS";
+        if (payload?.success !== true) {
+          throw new Error(payload?.detail || payload?.error || "LifeOS write failed");
+        }
+
+        const syncStatus = payload.sync_status || "local_only";
+
+        if (syncStatus === "synced") {
+          writeStatus.classList.remove("error");
+          writeStatus.textContent = "已同步到 LifeOS（sync_status: synced）";
+        } else if (syncStatus === "failed") {
+          writeStatus.classList.add("error");
+          writeStatus.textContent = "仅本地写入成功（未同步LifeOS）（sync_status: failed）";
+        } else {
+          writeStatus.classList.add("error");
+          writeStatus.textContent = "仅本地写入成功（未同步LifeOS）（sync_status: local_only）";
+        }
       } catch (error) {
         writeStatus.textContent = `写入 LifeOS 失败：${error.message}`;
         writeStatus.classList.add("error");

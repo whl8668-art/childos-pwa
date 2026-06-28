@@ -25,6 +25,8 @@ v2.6：记录沉淀 + 短期目标可编辑版。
 
 页面也提供“写入 LifeOS”按钮。只有用户主动点击该按钮时，前端才会请求 `/api/lifeos/write`。当前该接口会追加写入 JSON 文件：本地开发写入 `data/lifeos.json`，Vercel 上写入 `/tmp/data/lifeos.json`。
 
+如果配置了 `LIFEOS_INGEST_URL`，`/api/lifeos/write` 会在本地写入成功后同步请求 LifeOS ingest。只有 LifeOS 返回 `{ "success": true }` 时，前端才显示“已同步到 LifeOS”，否则显示“仅本地写入成功（未同步LifeOS）”，并展示 `sync_status`：`local_only`、`synced` 或 `failed`。
+
 ## 部署方式
 
 推荐部署到 Vercel。GitHub Pages 可以托管静态页面，但不能安全保存 API Key，也不能运行后端代理接口。

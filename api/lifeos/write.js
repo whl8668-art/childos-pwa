@@ -86,7 +86,7 @@ async function syncToLifeOS(record) {
       sync: "fail",
       status: null
     });
-    return;
+    return "local_only";
   }
 
   try {
@@ -95,24 +95,27 @@ async function syncToLifeOS(record) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(record)
     });
+    const payload = await lifeosResponse.json().catch(() => null);
 
-    if (!lifeosResponse.ok) {
+    if (!lifeosResponse.ok || payload?.success !== true) {
       console.warn("[lifeos/write] LifeOS ingest returned non-OK status", {
         sync: "fail",
         status: lifeosResponse.status
       });
-      return;
+      return "failed";
     }
 
     console.log("[lifeos/write] LifeOS ingest sync success", {
       sync: "success",
       status: lifeosResponse.status
     });
+    return "synced";
   } catch (error) {
     console.warn("[lifeos/write] LifeOS ingest request failed", {
       sync: "fail",
       status: null
     });
+    return "failed";
   }
 }
 
@@ -131,12 +134,13 @@ module.exports = async function handler(request, response) {
 
     records.push(record);
     await writeRecords(records);
-    await syncToLifeOS(record);
+    const syncStatus = await syncToLifeOS(record);
 
     return sendJson(response, 200, {
       success: true,
       id: record.id,
-      storage: DATA_FILE
+      storage: DATA_FILE,
+      sync_status: syncStatus
     });
   } catch (error) {
     return sendJson(response, 500, {
