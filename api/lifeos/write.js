@@ -1,8 +1,9 @@
 const fs = require("fs/promises");
 const path = require("path");
 const crypto = require("crypto");
+const os = require("os");
 
-const DATA_DIR = path.join(process.cwd(), "data");
+const DATA_DIR = process.env.VERCEL ? path.join(os.tmpdir(), "data") : path.join(process.cwd(), "data");
 const DATA_FILE = path.join(DATA_DIR, "lifeos.json");
 
 function sendJson(response, statusCode, payload) {
@@ -96,7 +97,8 @@ module.exports = async function handler(request, response) {
 
     return sendJson(response, 200, {
       success: true,
-      id: record.id
+      id: record.id,
+      storage: DATA_FILE
     });
   } catch (error) {
     return sendJson(response, 500, {
