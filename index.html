@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#f6f1e8">
-  <meta name="description" content="ChildOS v2.5 AI 行动决策器">
+  <meta name="description" content="ChildOS v2.6 行动决策器">
   <link rel="manifest" href='data:application/manifest+json,{"name":"ChildOS Decision","short_name":"ChildOS","start_url":".","display":"standalone","background_color":"#f6f1e8","theme_color":"#f6f1e8","icons":[]}'>
   <title>ChildOS 行动决策器</title>
   <style>
@@ -79,7 +79,8 @@
 
     .card,
     .input-panel,
-    .result-panel {
+    .result-panel,
+    .record-panel {
       background: var(--panel);
       border: 1px solid var(--line);
       border-radius: 8px;
@@ -91,6 +92,18 @@
       padding: 15px 16px;
     }
 
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .card-header h2 {
+      margin: 0;
+    }
+
     .boundary {
       border-color: rgba(138, 75, 31, 0.28);
     }
@@ -99,7 +112,21 @@
       color: var(--warning);
     }
 
-    .input-panel {
+    .text-button {
+      width: auto;
+      min-height: 34px;
+      margin: 0;
+      border: 1px solid var(--line);
+      padding: 7px 10px;
+      color: var(--accent-dark);
+      background: #fff;
+      font-size: 14px;
+      white-space: nowrap;
+    }
+
+    .input-panel,
+    .result-panel,
+    .record-panel {
       margin-top: 16px;
       padding: 16px;
     }
@@ -132,6 +159,24 @@
       box-shadow: 0 0 0 3px rgba(47, 111, 115, 0.16);
     }
 
+    .goal-editor {
+      margin-top: 12px;
+    }
+
+    .goal-editor[hidden],
+    .result-panel[hidden],
+    .record-panel[hidden] {
+      display: none;
+    }
+
+    .goal-actions,
+    .record-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
     button {
       width: 100%;
       min-height: 48px;
@@ -145,6 +190,12 @@
       color: #fff;
       background: var(--accent);
       cursor: pointer;
+    }
+
+    button.secondary {
+      border: 1px solid var(--line);
+      color: var(--text);
+      background: #fff;
     }
 
     button:disabled {
@@ -168,15 +219,6 @@
     .status.error {
       color: var(--error);
       font-weight: 700;
-    }
-
-    .result-panel {
-      margin-top: 16px;
-      padding: 16px;
-    }
-
-    .result-panel[hidden] {
-      display: none;
     }
 
     .result-grid {
@@ -209,6 +251,29 @@
       overflow-wrap: anywhere;
     }
 
+    .follow-up {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 16px;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+    .follow-up input {
+      width: 18px;
+      height: 18px;
+      flex: 0 0 auto;
+    }
+
+    #lifeos-record {
+      min-height: 260px;
+      margin-top: 10px;
+      font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+      font-size: 14px;
+    }
+
     @media (max-width: 420px) {
       main {
         padding-top: 22px;
@@ -218,7 +283,9 @@
         font-size: 25px;
       }
 
-      ul {
+      ul,
+      .goal-actions,
+      .record-actions {
         grid-template-columns: 1fr;
       }
     }
@@ -231,8 +298,19 @@
     </header>
 
     <section class="card" aria-labelledby="current-goal-title">
-      <h2 id="current-goal-title">当前阶段目标</h2>
-      <p>学校任务保底，期末复习小步推进，课外班欠账不扩大，妈妈不爆炸。</p>
+      <div class="card-header">
+        <h2 id="current-goal-title">当前短期目标</h2>
+        <button id="edit-goal" class="text-button" type="button">编辑短期目标</button>
+      </div>
+      <p id="current-goal-text">学校任务保底，期末复习小步推进，课外班欠账不扩大，妈妈不爆炸。</p>
+      <div id="goal-editor" class="goal-editor" hidden>
+        <label for="goal-input">短期目标</label>
+        <textarea id="goal-input" rows="3"></textarea>
+        <div class="goal-actions">
+          <button id="save-goal" type="button">使用这个目标</button>
+          <button id="cancel-goal" class="secondary" type="button">取消</button>
+        </div>
+      </div>
     </section>
 
     <section class="card" aria-labelledby="long-term-title">
@@ -288,14 +366,45 @@
           <div id="review_point" class="result-text"></div>
         </div>
       </div>
+      <label class="follow-up">
+        <input id="needs-goal-update" type="checkbox">
+        是否需要后续更新短期目标
+      </label>
+      <button id="generate-record" type="button">生成 LifeOS 记录</button>
+    </section>
+
+    <section id="record-panel" class="record-panel" aria-labelledby="record-title" hidden>
+      <h2 id="record-title">LifeOS 记录</h2>
+      <p>仅生成可复制文本，不会自动写入 LifeOS。</p>
+      <textarea id="lifeos-record" readonly></textarea>
+      <div class="record-actions">
+        <button id="copy-record" type="button">复制记录</button>
+        <button id="clear-record" class="secondary" type="button">清空记录</button>
+      </div>
+      <div id="record-status" class="status" aria-live="polite"></div>
     </section>
   </main>
 
   <script>
+    const DEFAULT_SHORT_TERM_GOAL = "学校任务保底，期末复习小步推进，课外班欠账不扩大，妈妈不爆炸。";
+
     const sceneInput = document.getElementById("scene");
     const generateButton = document.getElementById("generate");
     const statusText = document.getElementById("status");
     const resultPanel = document.getElementById("result");
+    const currentGoalText = document.getElementById("current-goal-text");
+    const goalEditor = document.getElementById("goal-editor");
+    const goalInput = document.getElementById("goal-input");
+    const editGoalButton = document.getElementById("edit-goal");
+    const saveGoalButton = document.getElementById("save-goal");
+    const cancelGoalButton = document.getElementById("cancel-goal");
+    const generateRecordButton = document.getElementById("generate-record");
+    const needsGoalUpdateInput = document.getElementById("needs-goal-update");
+    const recordPanel = document.getElementById("record-panel");
+    const recordText = document.getElementById("lifeos-record");
+    const copyRecordButton = document.getElementById("copy-record");
+    const clearRecordButton = document.getElementById("clear-record");
+    const recordStatus = document.getElementById("record-status");
     const fields = {
       current_judgment: document.getElementById("current_judgment"),
       one_action: document.getElementById("one_action"),
@@ -303,6 +412,10 @@
       say_to_child: document.getElementById("say_to_child"),
       review_point: document.getElementById("review_point")
     };
+
+    let currentShortTermGoal = DEFAULT_SHORT_TERM_GOAL;
+    let latestCard = null;
+    let latestScene = "";
 
     function isValidCard(card) {
       return card
@@ -317,6 +430,7 @@
       Object.entries(fields).forEach(([key, element]) => {
         element.textContent = card[key];
       });
+      latestCard = card;
       resultPanel.hidden = false;
     }
 
@@ -324,20 +438,32 @@
       Object.values(fields).forEach((element) => {
         element.textContent = "";
       });
+      latestCard = null;
       resultPanel.hidden = true;
+      recordPanel.hidden = true;
+      recordText.value = "";
+      recordStatus.textContent = "";
+    }
+
+    function setShortTermGoal(goal) {
+      currentShortTermGoal = goal.trim() || DEFAULT_SHORT_TERM_GOAL;
+      currentGoalText.textContent = currentShortTermGoal;
     }
 
     async function requestAiCard(scene) {
       const response = await fetch("/api/childos-decision", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ scene })
+        body: JSON.stringify({
+          scene,
+          currentShortTermGoal
+        })
       });
 
       const payload = await response.json().catch(() => null);
 
       if (!response.ok) {
-        throw new Error(payload?.detail || payload?.error || "AI service unavailable");
+        throw new Error(payload?.detail || payload?.errorMessage || payload?.error || "AI service unavailable");
       }
 
       if (payload?.source !== "ai" || !isValidCard(payload.card)) {
@@ -358,6 +484,7 @@
         return;
       }
 
+      latestScene = scene;
       generateButton.disabled = true;
       generateButton.textContent = "生成中，请稍等...";
       statusText.textContent = "当前使用：AI 决策生成中";
@@ -375,7 +502,90 @@
       }
     }
 
+    function buildLifeOSRecord() {
+      const date = new Date().toLocaleDateString("zh-CN", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+      });
+      const needsGoalUpdate = needsGoalUpdateInput.checked ? "是" : "否";
+
+      return [
+        `# ChildOS 行动记录 - ${date}`,
+        "",
+        `- 日期：${date}`,
+        `- 当前短期目标：${currentShortTermGoal}`,
+        `- 输入场景：${latestScene}`,
+        "",
+        "## 行动决策卡",
+        "",
+        `- 当前判断：${latestCard.current_judgment}`,
+        `- 现在只做：${latestCard.one_action}`,
+        `- 不要做：${latestCard.do_not_do}`,
+        `- 对孩子说：${latestCard.say_to_child}`,
+        `- 复盘点：${latestCard.review_point}`,
+        `- 是否需要后续更新短期目标：${needsGoalUpdate}`
+      ].join("\n");
+    }
+
+    function generateLifeOSRecord() {
+      if (!latestCard) {
+        recordStatus.textContent = "请先生成行动决策卡。";
+        recordStatus.classList.add("error");
+        return;
+      }
+
+      recordStatus.classList.remove("error");
+      recordText.value = buildLifeOSRecord();
+      recordPanel.hidden = false;
+      recordStatus.textContent = "记录已生成，请手动复制并确认后再写入 LifeOS。";
+    }
+
+    async function copyLifeOSRecord() {
+      if (!recordText.value) {
+        recordStatus.textContent = "没有可复制的记录。";
+        recordStatus.classList.add("error");
+        return;
+      }
+
+      try {
+        await navigator.clipboard.writeText(recordText.value);
+        recordStatus.classList.remove("error");
+        recordStatus.textContent = "已复制。";
+      } catch (error) {
+        recordText.focus();
+        recordText.select();
+        recordStatus.classList.add("error");
+        recordStatus.textContent = "自动复制失败，请手动复制文本框内容。";
+      }
+    }
+
+    editGoalButton.addEventListener("click", () => {
+      goalInput.value = currentShortTermGoal;
+      goalEditor.hidden = false;
+      goalInput.focus();
+    });
+
+    saveGoalButton.addEventListener("click", () => {
+      setShortTermGoal(goalInput.value);
+      goalEditor.hidden = true;
+      clearCard();
+      statusText.textContent = "短期目标已更新，请重新生成行动决策。";
+      statusText.classList.remove("error");
+    });
+
+    cancelGoalButton.addEventListener("click", () => {
+      goalEditor.hidden = true;
+    });
+
     generateButton.addEventListener("click", generateDecision);
+    generateRecordButton.addEventListener("click", generateLifeOSRecord);
+    copyRecordButton.addEventListener("click", copyLifeOSRecord);
+    clearRecordButton.addEventListener("click", () => {
+      recordText.value = "";
+      recordPanel.hidden = true;
+      recordStatus.textContent = "";
+    });
   </script>
 </body>
 </html>

@@ -3,6 +3,8 @@ const AGNES_MODEL = process.env.AGNES_MODEL || "agnes-2.0-flash";
 const AGNES_API_KEY = process.env.AGNES_API_KEY;
 const DEBUG_AGNES = process.env.DEBUG_AGNES === "true";
 
+const DEFAULT_SHORT_TERM_GOAL = "学校任务保底，期末复习小步推进，课外班欠账不扩大，妈妈不爆炸。";
+
 const SYSTEM_PROMPT = `你是 ChildOS 的行动决策器。
 你不是教育理论分析器，也不是心理咨询师。
 你的任务是帮助妈妈在真实家庭场景中，立刻做出一个低压力、可执行、不伤害亲子关系的行动选择。
@@ -27,8 +29,8 @@ const SYSTEM_PROMPT = `你是 ChildOS 的行动决策器。
 5. 稳定自我认同
 6. 时代适应力
 
-当前阶段目标：
-学校任务保底，期末复习小步推进，课外班欠账不扩大，妈妈不爆炸。
+当前短期目标会由用户请求提供。
+你必须根据请求中的 currentShortTermGoal 收敛行动，不要只依赖默认目标。
 
 系统边界：
 ChildOS 不是用来要求孩子达到妈妈标准的系统。
@@ -237,14 +239,23 @@ function parseAgnesCard(payload, rawResponse, status) {
   }
 }
 
-async function callAgnes(scene) {
+function buildUserPrompt(scene, currentShortTermGoal) {
+  return [
+    `currentShortTermGoal: ${currentShortTermGoal}`,
+    "",
+    "scene:",
+    scene
+  ].join("\n");
+}
+
+async function callAgnes(scene, currentShortTermGoal) {
   assertAgnesConfig();
 
   const requestBody = {
     model: AGNES_MODEL,
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: scene }
+      { role: "user", content: buildUserPrompt(scene, currentShortTermGoal) }
     ],
     response_format: { type: "json_object" }
   };
@@ -258,6 +269,7 @@ async function callAgnes(scene) {
   logInfo("Agnes request started", {
     model: AGNES_MODEL,
     sceneLength: scene.length,
+    shortTermGoalLength: currentShortTermGoal.length,
     debug: DEBUG_AGNES
   });
   logDebug("Agnes request", {
@@ -347,9 +359,13 @@ module.exports = async function handler(request, response) {
   try {
     const { body, rawBody } = await parseJsonBody(request);
     const scene = typeof body.scene === "string" ? body.scene.trim() : "";
+    const currentShortTermGoal = typeof body.currentShortTermGoal === "string" && body.currentShortTermGoal.trim()
+      ? body.currentShortTermGoal.trim()
+      : DEFAULT_SHORT_TERM_GOAL;
 
     logInfo("Incoming decision request", {
       sceneLength: scene.length,
+      shortTermGoalLength: currentShortTermGoal.length,
       bodyLength: rawBody.length
     });
     logDebug("Incoming request", {
@@ -369,7 +385,7 @@ module.exports = async function handler(request, response) {
       });
     }
 
-    const card = await callAgnes(scene);
+    const card = await callAgnes(scene, currentShortTermGoal);
     return sendJson(response, 200, { source: "ai", card });
   } catch (error) {
     logError(error);
