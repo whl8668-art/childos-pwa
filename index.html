@@ -3,21 +3,22 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#f7f3ea">
-  <meta name="description" content="ChildOS v2 本地决策验证页面">
-  <link rel="manifest" href='data:application/manifest+json,{"name":"ChildOS Decision","short_name":"ChildOS","start_url":".","display":"standalone","background_color":"#f7f3ea","theme_color":"#f7f3ea","icons":[]}'>
-  <title>ChildOS v2 决策卡</title>
+  <meta name="theme-color" content="#f6f1e8">
+  <meta name="description" content="ChildOS v2.5 行动决策器">
+  <link rel="manifest" href='data:application/manifest+json,{"name":"ChildOS Decision","short_name":"ChildOS","start_url":".","display":"standalone","background_color":"#f6f1e8","theme_color":"#f6f1e8","icons":[]}'>
+  <title>ChildOS 行动决策器</title>
   <style>
     :root {
       color-scheme: light;
-      --bg: #f7f3ea;
+      --bg: #f6f1e8;
       --panel: #fffdf8;
       --text: #24211d;
-      --muted: #6d665d;
-      --line: #ddd3c4;
+      --muted: #6b6258;
+      --line: #ddd2c2;
       --accent: #2f6f73;
       --accent-dark: #245b5e;
-      --shadow: 0 14px 35px rgba(54, 44, 31, 0.12);
+      --warning: #8a4b1f;
+      --shadow: 0 12px 30px rgba(53, 43, 30, 0.1);
     }
 
     * {
@@ -35,49 +36,84 @@
     main {
       width: min(680px, 100%);
       margin: 0 auto;
-      padding: 28px 16px 40px;
+      padding: 26px 16px 42px;
     }
 
     header {
-      margin-bottom: 22px;
+      margin-bottom: 18px;
     }
 
     h1 {
-      margin: 0 0 8px;
+      margin: 0;
       font-size: 28px;
       line-height: 1.2;
       letter-spacing: 0;
     }
 
-    p {
-      margin: 0;
-      color: var(--muted);
-      font-size: 15px;
-      line-height: 1.55;
+    h2 {
+      margin: 0 0 8px;
+      font-size: 16px;
+      line-height: 1.35;
+      letter-spacing: 0;
     }
 
-    .panel,
-    .card {
+    p,
+    li {
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.58;
+    }
+
+    p {
+      margin: 0;
+    }
+
+    ul {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px 16px;
+      margin: 0;
+      padding-left: 20px;
+    }
+
+    .card,
+    .input-panel,
+    .result-panel {
       background: var(--panel);
       border: 1px solid var(--line);
       border-radius: 8px;
       box-shadow: var(--shadow);
     }
 
-    .panel {
+    .card {
+      margin-top: 12px;
+      padding: 15px 16px;
+    }
+
+    .boundary {
+      border-color: rgba(138, 75, 31, 0.28);
+    }
+
+    .boundary h2 {
+      color: var(--warning);
+    }
+
+    .input-panel {
+      margin-top: 16px;
       padding: 16px;
     }
 
     label {
       display: block;
-      margin-bottom: 8px;
-      font-size: 15px;
-      font-weight: 700;
+      margin-bottom: 9px;
+      font-size: 16px;
+      font-weight: 800;
+      line-height: 1.35;
     }
 
     textarea {
       width: 100%;
-      min-height: 170px;
+      min-height: 150px;
       resize: vertical;
       border: 1px solid var(--line);
       border-radius: 8px;
@@ -104,38 +140,63 @@
       padding: 12px 16px;
       font: inherit;
       font-size: 16px;
-      font-weight: 700;
+      font-weight: 800;
       color: #fff;
       background: var(--accent);
       cursor: pointer;
     }
 
-    button:active {
+    button:disabled {
+      cursor: progress;
+      opacity: 0.75;
+    }
+
+    button:active:not(:disabled) {
       background: var(--accent-dark);
       transform: translateY(1px);
     }
 
-    .card {
-      margin-top: 16px;
-      padding: 18px;
-    }
-
-    .card[hidden] {
-      display: none;
-    }
-
-    .card-title {
-      margin-bottom: 10px;
+    .status {
+      min-height: 22px;
+      margin-top: 10px;
       color: var(--muted);
       font-size: 14px;
-      font-weight: 700;
+      line-height: 1.5;
     }
 
-    .action {
-      margin: 0;
-      font-size: 24px;
-      line-height: 1.35;
+    .result-panel {
+      margin-top: 16px;
+      padding: 16px;
+    }
+
+    .result-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .result-item {
+      border-top: 1px solid var(--line);
+      padding-top: 12px;
+    }
+
+    .result-item:first-child {
+      border-top: 0;
+      padding-top: 0;
+    }
+
+    .result-label {
+      margin-bottom: 4px;
+      color: var(--muted);
+      font-size: 13px;
       font-weight: 800;
+    }
+
+    .result-text {
+      color: var(--text);
+      font-size: 17px;
+      line-height: 1.55;
+      font-weight: 700;
+      overflow-wrap: anywhere;
     }
 
     @media (max-width: 420px) {
@@ -144,11 +205,11 @@
       }
 
       h1 {
-        font-size: 24px;
+        font-size: 25px;
       }
 
-      .action {
-        font-size: 22px;
+      ul {
+        grid-template-columns: 1fr;
       }
     }
   </style>
@@ -156,115 +217,208 @@
 <body>
   <main>
     <header>
-      <h1>ChildOS v2 决策卡</h1>
-      <p>输入一个抽象场景，页面按优先级只生成一个行动。</p>
+      <h1>ChildOS 行动决策器</h1>
     </header>
 
-    <section class="panel" aria-label="场景输入">
-      <label for="scene">场景描述</label>
-      <textarea id="scene" placeholder="例如：明天要交学习任务，但一直拖延，还出现焦虑。"></textarea>
-      <button id="generate" type="button">生成唯一行动</button>
+    <section class="card" aria-labelledby="current-goal-title">
+      <h2 id="current-goal-title">当前阶段目标</h2>
+      <p>学校任务保底，期末复习小步推进，课外班欠账不扩大，妈妈不爆炸。</p>
     </section>
 
-    <section id="result" class="card" aria-live="polite" hidden>
-      <div class="card-title">唯一行动</div>
-      <p id="action" class="action"></p>
+    <section class="card" aria-labelledby="long-term-title">
+      <h2 id="long-term-title">孩子长期培养目标</h2>
+      <ul>
+        <li>独立生活能力</li>
+        <li>真实责任感</li>
+        <li>学习输出能力</li>
+        <li>表达与关系能力</li>
+        <li>稳定自我认同</li>
+        <li>时代适应力</li>
+      </ul>
+    </section>
+
+    <section class="card" aria-labelledby="brake-title">
+      <h2 id="brake-title">妈妈刹车提醒</h2>
+      <p>今天不是要把孩子改好。今天只做一个不伤关系、能恢复秩序的小行动。</p>
+    </section>
+
+    <section class="card boundary" aria-labelledby="boundary-title">
+      <h2 id="boundary-title">系统边界提醒</h2>
+      <p>ChildOS 不是用来要求孩子达到妈妈标准的系统。它只帮助妈妈在当下少做冲动、少做过度干预、少把焦虑传给孩子。</p>
+    </section>
+
+    <section class="input-panel" aria-labelledby="scene-title">
+      <label id="scene-title" for="scene">现在发生了什么？</label>
+      <textarea id="scene" autocomplete="off" placeholder="例如：孩子作业没完成，我有点着急"></textarea>
+      <button id="generate" type="button">生成行动决策</button>
+      <div id="status" class="status" aria-live="polite">当前使用：等待输入</div>
+    </section>
+
+    <section class="result-panel" aria-labelledby="result-title" aria-live="polite">
+      <h2 id="result-title">行动决策卡</h2>
+      <div class="result-grid">
+        <div class="result-item">
+          <div class="result-label">当前判断：</div>
+          <div id="current_judgment" class="result-text">输入场景后生成。</div>
+        </div>
+        <div class="result-item">
+          <div class="result-label">现在只做：</div>
+          <div id="one_action" class="result-text">先收敛成一个动作。</div>
+        </div>
+        <div class="result-item">
+          <div class="result-label">不要做：</div>
+          <div id="do_not_do" class="result-text">不要扩大化处理。</div>
+        </div>
+        <div class="result-item">
+          <div class="result-label">对孩子说：</div>
+          <div id="say_to_child" class="result-text">用短句，不追责。</div>
+        </div>
+        <div class="result-item">
+          <div class="result-label">复盘点：</div>
+          <div id="review_point" class="result-text">只看下一次能否少一步冲动。</div>
+        </div>
+      </div>
     </section>
   </main>
 
   <script>
-    const signalPatterns = {
-      time: /ddl|deadline|截止|到期|今天|今晚|明天|马上|立刻|尽快|来不及|周.前|要交|交作业|交任务/,
-      irreversible: /拖延|没写|未写|没做|未做|未完成|没完成|欠账|没开始|补不完|落下|来不及/,
-      learning: /学习|作业|复习|预习|数学|英语|语文|科学|知识点|错题|题目|考试|测验/,
-      emotion: /焦虑|急躁|烦躁|崩溃|生气|哭|压力|紧张|冲突|吵|不想学|抗拒/
-    };
-
-    const priorities = [
-      { name: "time", rank: 1 },
-      { name: "irreversible", rank: 2 },
-      { name: "learning", rank: 3 },
-      { name: "emotion", rank: 4 }
-    ];
-
     const sceneInput = document.getElementById("scene");
     const generateButton = document.getElementById("generate");
-    const resultCard = document.getElementById("result");
-    const actionText = document.getElementById("action");
+    const statusText = document.getElementById("status");
+    const fields = {
+      current_judgment: document.getElementById("current_judgment"),
+      one_action: document.getElementById("one_action"),
+      do_not_do: document.getElementById("do_not_do"),
+      say_to_child: document.getElementById("say_to_child"),
+      review_point: document.getElementById("review_point")
+    };
 
-    function understandScene(text) {
-      const signals = Object.fromEntries(
-        Object.entries(signalPatterns).map(([name, pattern]) => [name, pattern.test(text)])
-      );
-      const matchedPriorities = priorities.filter((priority) => signals[priority.name]);
+    const fallbackCards = {
+      empty: {
+        current_judgment: "先把场景说清楚，不急着判断孩子。",
+        one_action: "写下现在最需要处理的一件事。",
+        do_not_do: "不要在信息不清楚时开始说教。",
+        say_to_child: "我先停一下，想清楚现在只处理哪一件事。",
+        review_point: "复盘这次有没有先停住。"
+      },
+      safety: {
+        current_judgment: "现在先处理安全，其他事情都后放。",
+        one_action: "立刻让孩子离开危险物或危险位置。",
+        do_not_do: "不要一边责备一边处理危险。",
+        say_to_child: "先停下，到我身边来。安全处理完，我们再说下一步。",
+        review_point: "复盘危险源下次能否提前移走。"
+      },
+      conflict: {
+        current_judgment: "已经进入冲突，先停止追责。",
+        one_action: "暂停争论，给双方三分钟降温。",
+        do_not_do: "不要继续证明谁对谁错。",
+        say_to_child: "我先暂停一下，不继续吵。三分钟后我们只说下一步怎么做。",
+        review_point: "复盘有没有在冲突升级前停住。"
+      },
+      learning: {
+        current_judgment: "现在目标是保底完成最小学习任务。",
+        one_action: "选一个最小任务，先做十分钟。",
+        do_not_do: "不要追加整套复习计划。",
+        say_to_child: "我们先不谈全部，只做十分钟最小任务。做完就停一下。",
+        review_point: "复盘最小任务是否足够明确。"
+      },
+      anxious: {
+        current_judgment: "妈妈的焦虑正在放大任务。",
+        one_action: "先喝水或坐下，暂停三十秒再说一句短指令。",
+        do_not_do: "不要把今天变成全面纠偏。",
+        say_to_child: "我有点着急，先慢下来。现在我们只处理一件小事。",
+        review_point: "复盘这次有没有把期待缩小。"
+      },
+      default: {
+        current_judgment: "现在需要恢复一点秩序，不需要解决全部问题。",
+        one_action: "选一个能在五分钟内开始的小动作。",
+        do_not_do: "不要同时谈态度、成绩和习惯。",
+        say_to_child: "我们先做一个很小的开始，做完再看下一步。",
+        review_point: "复盘这个动作是否真的足够小。"
+      }
+    };
 
-      return {
-        signals,
-        hasConflict: matchedPriorities.length > 1,
-        topPriority: matchedPriorities[0]?.name || "default"
-      };
+    function pickFallbackCard(scene) {
+      const text = scene.trim();
+      if (!text) return fallbackCards.empty;
+
+      if (/危险|受伤|刀|火|电|摔|撞|血|烫|走丢|马路|安全/.test(text)) {
+        return fallbackCards.safety;
+      }
+
+      if (/吵|冲突|发火|哭|崩溃|顶嘴|喊|骂|摔|生气/.test(text)) {
+        return fallbackCards.conflict;
+      }
+
+      if (/焦虑|着急|忍不住|控制不住|爆炸|烦|急/.test(text)) {
+        return fallbackCards.anxious;
+      }
+
+      if (/作业|复习|考试|学校|课外班|练习|背|读|写|题/.test(text)) {
+        return fallbackCards.learning;
+      }
+
+      return fallbackCards.default;
     }
 
-    function decideSingleAction(scene) {
-      const { signals, topPriority } = scene;
-
-      if (topPriority === "time") {
-        if (signals.learning && /复习|考试|测验|错题|知识点|数学/.test(sceneInput.value)) {
-          return "立刻开始复习一个知识点";
-        }
-
-        if (signals.learning && /英语/.test(sceneInput.value)) {
-          return "完成英语一句输出";
-        }
-
-        if (signals.learning) {
-          return "完成作业";
-        }
-
-        return "确认最近截止任务";
-      }
-
-      if (topPriority === "irreversible") {
-        if (signals.learning) {
-          return "立刻开始学习任务";
-        }
-
-        return "启动未完成任务";
-      }
-
-      if (topPriority === "learning") {
-        if (/英语/.test(sceneInput.value)) {
-          return "完成英语一句输出";
-        }
-
-        if (/复习|数学|知识点|错题|考试|测验/.test(sceneInput.value)) {
-          return "复习一个知识点";
-        }
-
-        return "完成作业";
-      }
-
-      if (topPriority === "emotion") {
-        return "停止干预并观察10分钟";
-      }
-
-      return "记录一个抽象场景";
+    function isValidCard(card) {
+      return card
+        && typeof card.current_judgment === "string"
+        && typeof card.one_action === "string"
+        && typeof card.do_not_do === "string"
+        && typeof card.say_to_child === "string"
+        && typeof card.review_point === "string";
     }
 
-    function renderAction() {
-      const text = sceneInput.value.trim();
-      const scene = understandScene(text);
-      const action = decideSingleAction(scene);
-
-      actionText.textContent = action;
-      resultCard.hidden = false;
+    function renderCard(card) {
+      Object.entries(fields).forEach(([key, element]) => {
+        element.textContent = card[key];
+      });
     }
 
-    generateButton.addEventListener("click", renderAction);
+    async function requestAiCard(scene) {
+      const response = await fetch("/api/childos-decision", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scene })
+      });
+
+      if (!response.ok) {
+        throw new Error("AI service unavailable");
+      }
+
+      const payload = await response.json();
+      if (payload.source !== "ai" || !isValidCard(payload.card)) {
+        throw new Error("Invalid AI response");
+      }
+
+      return payload.card;
+    }
+
+    async function generateDecision() {
+      const scene = sceneInput.value.trim();
+      generateButton.disabled = true;
+      generateButton.textContent = "生成中，请稍等...";
+      statusText.textContent = "生成中，请稍等...";
+
+      try {
+        const card = await requestAiCard(scene);
+        renderCard(card);
+        statusText.textContent = "当前使用：AI 决策";
+      } catch (error) {
+        renderCard(pickFallbackCard(scene));
+        statusText.textContent = "当前使用：本地规则回退";
+      } finally {
+        generateButton.disabled = false;
+        generateButton.textContent = "生成行动决策";
+      }
+    }
+
+    generateButton.addEventListener("click", generateDecision);
 
     if ("serviceWorker" in navigator && location.protocol !== "file:") {
       const swCode = `
-        self.addEventListener("install", (event) => self.skipWaiting());
+        self.addEventListener("install", () => self.skipWaiting());
         self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
         self.addEventListener("fetch", (event) => event.respondWith(fetch(event.request)));
       `;
