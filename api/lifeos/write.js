@@ -5,6 +5,7 @@ const os = require("os");
 
 const DATA_DIR = process.env.VERCEL ? path.join(os.tmpdir(), "data") : path.join(process.cwd(), "data");
 const DATA_FILE = path.join(DATA_DIR, "lifeos.json");
+const LIFEOS_INGEST_URL = process.env.LIFEOS_INGEST_URL;
 
 function sendJson(response, statusCode, payload) {
   response.statusCode = statusCode;
@@ -79,6 +80,42 @@ function buildRecord(body) {
   };
 }
 
+async function syncToLifeOS(record) {
+  if (!LIFEOS_INGEST_URL) {
+    console.warn("[lifeos/write] LifeOS ingest sync skipped", {
+      sync: "fail",
+      status: null
+    });
+    return;
+  }
+
+  try {
+    const lifeosResponse = await fetch(LIFEOS_INGEST_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(record)
+    });
+
+    if (!lifeosResponse.ok) {
+      console.warn("[lifeos/write] LifeOS ingest returned non-OK status", {
+        sync: "fail",
+        status: lifeosResponse.status
+      });
+      return;
+    }
+
+    console.log("[lifeos/write] LifeOS ingest sync success", {
+      sync: "success",
+      status: lifeosResponse.status
+    });
+  } catch (error) {
+    console.warn("[lifeos/write] LifeOS ingest request failed", {
+      sync: "fail",
+      status: null
+    });
+  }
+}
+
 module.exports = async function handler(request, response) {
   if (request.method !== "POST") {
     return sendJson(response, 405, {
@@ -94,6 +131,7 @@ module.exports = async function handler(request, response) {
 
     records.push(record);
     await writeRecords(records);
+    await syncToLifeOS(record);
 
     return sendJson(response, 200, {
       success: true,

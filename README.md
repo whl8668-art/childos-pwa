@@ -37,6 +37,7 @@ v2.6：记录沉淀 + 短期目标可编辑版。
 - `AGNES_API_URL`
 - `AGNES_MODEL`
 - `DEBUG_AGNES`：可选，默认关闭时只保留状态摘要；临时排查接口问题时设为 `true`，会输出脱敏 headers、request body 和 Agnes raw response。
+- `LIFEOS_INGEST_URL`：可选，配置后 `/api/lifeos/write` 会在本地 JSON 写入成功后同步 POST 到该 LifeOS ingest 地址。
 
 `AGNES_API_KEY` 只在服务端读取，不能写入 `index.html` 或任何前端代码。
 
