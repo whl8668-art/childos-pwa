@@ -1,0 +1,5 @@
+.localappdata/
+.npm-cache/
+.vercel-cli-cache/
+.vercel-cli-config/
+.vercel-cli-data/
