@@ -40,12 +40,8 @@
       padding: 26px 16px 42px;
     }
 
-    header {
-      margin-bottom: 18px;
-    }
-
     h1 {
-      margin: 0;
+      margin: 0 0 18px;
       font-size: 28px;
       line-height: 1.2;
       letter-spacing: 0;
@@ -54,6 +50,13 @@
     h2 {
       margin: 0 0 8px;
       font-size: 16px;
+      line-height: 1.35;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 16px 0 8px;
+      font-size: 15px;
       line-height: 1.35;
       letter-spacing: 0;
     }
@@ -77,14 +80,17 @@
       padding-left: 20px;
     }
 
-    .card,
-    .input-panel,
-    .result-panel,
-    .record-panel {
+    .panel,
+    .card {
       background: var(--panel);
       border: 1px solid var(--line);
       border-radius: 8px;
       box-shadow: var(--shadow);
+    }
+
+    .panel {
+      margin-top: 16px;
+      padding: 16px;
     }
 
     .card {
@@ -100,7 +106,7 @@
       margin-bottom: 8px;
     }
 
-    .card-header h2 {
+    .card-header h3 {
       margin: 0;
     }
 
@@ -110,25 +116,6 @@
 
     .boundary h2 {
       color: var(--warning);
-    }
-
-    .text-button {
-      width: auto;
-      min-height: 34px;
-      margin: 0;
-      border: 1px solid var(--line);
-      padding: 7px 10px;
-      color: var(--accent-dark);
-      background: #fff;
-      font-size: 14px;
-      white-space: nowrap;
-    }
-
-    .input-panel,
-    .result-panel,
-    .record-panel {
-      margin-top: 16px;
-      padding: 16px;
     }
 
     label {
@@ -159,24 +146,6 @@
       box-shadow: 0 0 0 3px rgba(47, 111, 115, 0.16);
     }
 
-    .goal-editor {
-      margin-top: 12px;
-    }
-
-    .goal-editor[hidden],
-    .result-panel[hidden],
-    .record-panel[hidden] {
-      display: none;
-    }
-
-    .goal-actions,
-    .record-actions {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      margin-top: 10px;
-    }
-
     button {
       width: 100%;
       min-height: 48px;
@@ -192,10 +161,21 @@
       cursor: pointer;
     }
 
-    button.secondary {
+    button.secondary,
+    button.text-button {
       border: 1px solid var(--line);
       color: var(--text);
       background: #fff;
+    }
+
+    button.text-button {
+      width: auto;
+      min-height: 34px;
+      margin: 0;
+      padding: 7px 10px;
+      color: var(--accent-dark);
+      font-size: 14px;
+      white-space: nowrap;
     }
 
     button:disabled {
@@ -206,6 +186,25 @@
     button:active:not(:disabled) {
       background: var(--accent-dark);
       transform: translateY(1px);
+    }
+
+    .goal-editor,
+    .setting-block {
+      margin-top: 12px;
+    }
+
+    .goal-editor[hidden],
+    .result-panel[hidden],
+    .record-panel[hidden] {
+      display: none;
+    }
+
+    .goal-actions,
+    .record-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px;
     }
 
     .status {
@@ -293,56 +292,36 @@
 </head>
 <body>
   <main>
-    <header>
-      <h1>ChildOS 行动决策器</h1>
-    </header>
+    <h1>ChildOS 行动决策器</h1>
 
-    <section class="card" aria-labelledby="current-goal-title">
-      <div class="card-header">
-        <h2 id="current-goal-title">当前短期目标</h2>
-        <button id="edit-goal" class="text-button" type="button">编辑短期目标</button>
-      </div>
-      <p id="current-goal-text">学校任务保底，期末复习小步推进，课外班欠账不扩大，妈妈不爆炸。</p>
-      <div id="goal-editor" class="goal-editor" hidden>
-        <label for="goal-input">短期目标</label>
-        <textarea id="goal-input" rows="3"></textarea>
-        <div class="goal-actions">
-          <button id="save-goal" type="button">使用这个目标</button>
-          <button id="cancel-goal" class="secondary" type="button">取消</button>
+    <section class="panel" aria-labelledby="settings-title">
+      <h2 id="settings-title">本次决策设置</h2>
+
+      <div class="setting-block" aria-labelledby="current-goal-title">
+        <div class="card-header">
+          <h3 id="current-goal-title">当前短期目标</h3>
+          <button id="edit-goal" class="text-button" type="button">编辑短期目标</button>
+        </div>
+        <p id="current-goal-text">学校任务保底，期末复习小步推进，课外班欠账不扩大，妈妈不爆炸。</p>
+        <div id="goal-editor" class="goal-editor" hidden>
+          <label for="goal-input">短期目标</label>
+          <textarea id="goal-input" rows="3"></textarea>
+          <div class="goal-actions">
+            <button id="save-goal" type="button">使用这个目标</button>
+            <button id="cancel-goal" class="secondary" type="button">取消</button>
+          </div>
         </div>
       </div>
+
+      <div class="setting-block">
+        <label id="scene-title" for="scene">现在发生了什么？</label>
+        <textarea id="scene" autocomplete="off" placeholder="例如：孩子作业没完成，我有点着急"></textarea>
+        <button id="generate" type="button">生成行动决策</button>
+        <div id="status" class="status" aria-live="polite">当前使用：等待 AI 生成</div>
+      </div>
     </section>
 
-    <section class="card" aria-labelledby="long-term-title">
-      <h2 id="long-term-title">孩子长期培养目标</h2>
-      <ul>
-        <li>独立生活能力</li>
-        <li>真实责任感</li>
-        <li>学习输出能力</li>
-        <li>表达与关系能力</li>
-        <li>稳定自我认同</li>
-        <li>时代适应力</li>
-      </ul>
-    </section>
-
-    <section class="card" aria-labelledby="brake-title">
-      <h2 id="brake-title">妈妈刹车提醒</h2>
-      <p>今天不是要把孩子改好。今天只做一个不伤关系、能恢复秩序的小行动。</p>
-    </section>
-
-    <section class="card boundary" aria-labelledby="boundary-title">
-      <h2 id="boundary-title">系统边界提醒</h2>
-      <p>ChildOS 不是用来要求孩子达到妈妈标准的系统。它只帮助妈妈在当下少做冲动、少做过度干预、少把焦虑传给孩子。</p>
-    </section>
-
-    <section class="input-panel" aria-labelledby="scene-title">
-      <label id="scene-title" for="scene">现在发生了什么？</label>
-      <textarea id="scene" autocomplete="off" placeholder="例如：孩子作业没完成，我有点着急"></textarea>
-      <button id="generate" type="button">生成行动决策</button>
-      <div id="status" class="status" aria-live="polite">当前使用：等待 AI 生成</div>
-    </section>
-
-    <section id="result" class="result-panel" aria-labelledby="result-title" aria-live="polite" hidden>
+    <section id="result" class="panel result-panel" aria-labelledby="result-title" aria-live="polite" hidden>
       <h2 id="result-title">行动决策卡</h2>
       <div class="result-grid">
         <div class="result-item">
@@ -373,7 +352,7 @@
       <button id="generate-record" type="button">生成 LifeOS 记录</button>
     </section>
 
-    <section id="record-panel" class="record-panel" aria-labelledby="record-title" hidden>
+    <section id="record-panel" class="panel record-panel" aria-labelledby="record-title" hidden>
       <h2 id="record-title">LifeOS 记录</h2>
       <p>仅生成可复制文本，不会自动写入 LifeOS。</p>
       <textarea id="lifeos-record" readonly></textarea>
@@ -382,6 +361,32 @@
         <button id="clear-record" class="secondary" type="button">清空记录</button>
       </div>
       <div id="record-status" class="status" aria-live="polite"></div>
+    </section>
+
+    <section class="panel" aria-labelledby="fixed-reminders-title">
+      <h2 id="fixed-reminders-title">固定提醒</h2>
+
+      <section class="card" aria-labelledby="long-term-title">
+        <h3 id="long-term-title">孩子长期培养目标</h3>
+        <ul>
+          <li>独立生活能力</li>
+          <li>真实责任感</li>
+          <li>学习输出能力</li>
+          <li>表达与关系能力</li>
+          <li>稳定自我认同</li>
+          <li>时代适应力</li>
+        </ul>
+      </section>
+
+      <section class="card" aria-labelledby="brake-title">
+        <h3 id="brake-title">妈妈刹车提醒</h3>
+        <p>今天不是要把孩子改好。今天只做一个不伤关系、能恢复秩序的小行动。</p>
+      </section>
+
+      <section class="card boundary" aria-labelledby="boundary-title">
+        <h3 id="boundary-title">系统边界提醒</h3>
+        <p>ChildOS 不是用来要求孩子达到妈妈标准的系统。它只帮助妈妈在当下少做冲动、少做过度干预、少把焦虑传给孩子。</p>
+      </section>
     </section>
   </main>
 
