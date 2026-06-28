@@ -23,6 +23,8 @@ v2.6：记录沉淀 + 短期目标可编辑版。
 
 行动决策卡生成后，页面可以生成一段可复制的 LifeOS markdown 记录。记录只生成文本，不会自动写入 GitHub、LifeOS、数据库或任何外部系统。
 
+页面也提供“写入 LifeOS”按钮。只有用户主动点击该按钮时，前端才会请求 `/api/lifeos/write`。当前该接口只打印收到的 JSON 并返回成功，暂时不接数据库。
+
 ## 部署方式
 
 推荐部署到 Vercel。GitHub Pages 可以托管静态页面，但不能安全保存 API Key，也不能运行后端代理接口。
@@ -63,6 +65,6 @@ npm run dev
 - 不使用长期记忆
 - 不做孩子画像
 - 不自动读取 LifeOS
-- 不自动写入 LifeOS
+- 不自动写入 LifeOS，只有用户点击“写入 LifeOS”才会发送本次记录
 
-API 请求只用于本次生成，不做持久化。LifeOS 记录必须由用户手动复制并确认后再进入 LifeOS。
+API 请求只用于本次生成或用户主动写入，不在 childos-pwa 中做持久化。当前 `/api/lifeos/write` 只作为接收桩接口，不接数据库。

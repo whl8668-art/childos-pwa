@@ -350,6 +350,8 @@
         是否需要后续更新短期目标
       </label>
       <button id="generate-record" type="button">生成 LifeOS 记录</button>
+      <button id="write-lifeos" class="secondary" type="button">写入 LifeOS</button>
+      <div id="write-status" class="status" aria-live="polite"></div>
     </section>
 
     <section id="record-panel" class="panel record-panel" aria-labelledby="record-title" hidden>
@@ -404,12 +406,14 @@
     const saveGoalButton = document.getElementById("save-goal");
     const cancelGoalButton = document.getElementById("cancel-goal");
     const generateRecordButton = document.getElementById("generate-record");
+    const writeLifeOSButton = document.getElementById("write-lifeos");
     const needsGoalUpdateInput = document.getElementById("needs-goal-update");
     const recordPanel = document.getElementById("record-panel");
     const recordText = document.getElementById("lifeos-record");
     const copyRecordButton = document.getElementById("copy-record");
     const clearRecordButton = document.getElementById("clear-record");
     const recordStatus = document.getElementById("record-status");
+    const writeStatus = document.getElementById("write-status");
     const fields = {
       current_judgment: document.getElementById("current_judgment"),
       one_action: document.getElementById("one_action"),
@@ -448,6 +452,8 @@
       recordPanel.hidden = true;
       recordText.value = "";
       recordStatus.textContent = "";
+      writeStatus.textContent = "";
+      writeStatus.classList.remove("error");
     }
 
     function setShortTermGoal(goal) {
@@ -533,6 +539,16 @@
       ].join("\n");
     }
 
+    function buildLifeOSPayload() {
+      return {
+        type: "childos_action",
+        context: latestScene,
+        short_term_goal: currentShortTermGoal,
+        decision: latestCard,
+        timestamp: new Date().toISOString()
+      };
+    }
+
     function generateLifeOSRecord() {
       if (!latestCard) {
         recordStatus.textContent = "请先生成行动决策卡。";
@@ -565,6 +581,38 @@
       }
     }
 
+    async function writeLifeOSRecord() {
+      if (!latestCard) {
+        writeStatus.textContent = "请先生成行动决策卡。";
+        writeStatus.classList.add("error");
+        return;
+      }
+
+      writeLifeOSButton.disabled = true;
+      writeStatus.classList.remove("error");
+      writeStatus.textContent = "正在写入 LifeOS...";
+
+      try {
+        const response = await fetch("/api/lifeos/write", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(buildLifeOSPayload())
+        });
+        const payload = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          throw new Error(payload?.detail || payload?.error || "LifeOS write failed");
+        }
+
+        writeStatus.textContent = "已写入 LifeOS";
+      } catch (error) {
+        writeStatus.textContent = `写入 LifeOS 失败：${error.message}`;
+        writeStatus.classList.add("error");
+      } finally {
+        writeLifeOSButton.disabled = false;
+      }
+    }
+
     editGoalButton.addEventListener("click", () => {
       goalInput.value = currentShortTermGoal;
       goalEditor.hidden = false;
@@ -585,6 +633,7 @@
 
     generateButton.addEventListener("click", generateDecision);
     generateRecordButton.addEventListener("click", generateLifeOSRecord);
+    writeLifeOSButton.addEventListener("click", writeLifeOSRecord);
     copyRecordButton.addEventListener("click", copyLifeOSRecord);
     clearRecordButton.addEventListener("click", () => {
       recordText.value = "";
