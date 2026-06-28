@@ -59,6 +59,10 @@ npm run dev
 
 如果没有配置 Agnes 环境变量，页面仍可打开，但点击生成会显示 AI 调用失败。配置环境变量后才会返回 AI 动态结果。
 
+## 操作记录
+
+当前 AI 生成、LifeOS 记录、Vercel 部署和同步状态排查流程见 [ChildOS PWA 全链路操作记录](docs/operation-flow.md)。
+
 ## 隐私声明
 
 - 不登录
