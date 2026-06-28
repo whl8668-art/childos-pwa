@@ -1,6 +1,7 @@
 const AGNES_API_URL = process.env.AGNES_API_URL;
-const AGNES_MODEL = process.env.AGNES_MODEL || "agnes";
+const AGNES_MODEL = process.env.AGNES_MODEL || "agnes-2.0-flash";
 const AGNES_API_KEY = process.env.AGNES_API_KEY;
+const DEBUG_AGNES = process.env.DEBUG_AGNES === "true";
 
 const SYSTEM_PROMPT = `你是 ChildOS 的行动决策器。
 你不是教育理论分析器，也不是心理咨询师。
@@ -53,44 +54,71 @@ const REQUIRED_CARD_KEYS = [
 ];
 
 class AgnesError extends Error {
-  constructor(message, details = {}) {
+  constructor(message, options = {}) {
     super(message);
     this.name = "AgnesError";
-    this.details = details;
-    this.status = details.status || 502;
-    this.rawResponse = details.rawResponse || details.bodyPreview || "";
+    this.status = options.status || 502;
+    this.agnesStatus = options.agnesStatus ?? null;
+    this.publicMessage = options.publicMessage || message;
+    this.rawResponse = options.rawResponse || "";
+    this.debug = options.debug || {};
   }
 }
 
-function getAgnesConfig() {
-  return {
-    apiUrl: AGNES_API_URL,
-    model: AGNES_MODEL,
-    hasApiKey: Boolean(AGNES_API_KEY),
-    apiKeyLength: AGNES_API_KEY ? AGNES_API_KEY.length : 0
-  };
+function sendJson(response, statusCode, payload) {
+  response.statusCode = statusCode;
+  response.setHeader("Content-Type", "application/json; charset=utf-8");
+  response.setHeader("Cache-Control", "no-store");
+  response.end(JSON.stringify(payload));
+}
+
+function readRequestBody(request) {
+  return new Promise((resolve, reject) => {
+    let rawBody = "";
+
+    request.on("data", (chunk) => {
+      rawBody += chunk;
+      if (rawBody.length > 12000) {
+        reject(new AgnesError("Request body too large", { status: 413 }));
+        request.destroy();
+      }
+    });
+
+    request.on("end", () => resolve(rawBody));
+    request.on("error", reject);
+  });
+}
+
+async function parseJsonBody(request) {
+  const rawBody = await readRequestBody(request);
+
+  try {
+    return {
+      rawBody,
+      body: rawBody ? JSON.parse(rawBody) : {}
+    };
+  } catch (error) {
+    throw new AgnesError("Invalid JSON body", {
+      status: 400,
+      rawResponse: rawBody
+    });
+  }
 }
 
 function assertAgnesConfig() {
   if (!AGNES_API_URL) {
-    throw new AgnesError("AGNES_API_URL is not configured", getAgnesConfig());
+    throw new AgnesError("AGNES_API_URL is not configured");
   }
 
   try {
     new URL(AGNES_API_URL);
   } catch (error) {
-    throw new AgnesError("AGNES_API_URL is not a valid URL", getAgnesConfig());
+    throw new AgnesError("AGNES_API_URL is not a valid URL");
   }
 
   if (!AGNES_API_KEY) {
-    throw new AgnesError("AGNES_API_KEY is not configured", getAgnesConfig());
+    throw new AgnesError("AGNES_API_KEY is not configured");
   }
-}
-
-function previewText(value, maxLength = 1200) {
-  const text = typeof value === "string" ? value : JSON.stringify(value);
-  if (!text) return "";
-  return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text;
 }
 
 function maskHeaders(headers) {
@@ -105,28 +133,6 @@ function maskHeaders(headers) {
   );
 }
 
-function logAgnesRequest(url, headers, requestBody) {
-  console.log("[childos-decision][debug] Agnes request URL", url);
-  console.log("[childos-decision][debug] Agnes request headers", maskHeaders(headers));
-  console.log("[childos-decision][debug] Agnes request body", requestBody);
-}
-
-function logAgnesResponse(status, rawBody) {
-  console.log("[childos-decision][debug] Agnes raw response", {
-    status,
-    text: rawBody
-  });
-}
-
-function logAgnesError(error) {
-  console.log("[childos-decision] Agnes error", {
-    name: error.name,
-    message: error.message,
-    cause: error.cause?.message,
-    details: error.details || null
-  });
-}
-
 function getIncomingRequestUrl(request) {
   const host = request.headers?.host || "";
   const protocol = request.headers?.["x-forwarded-proto"] || "https";
@@ -134,49 +140,23 @@ function getIncomingRequestUrl(request) {
   return `${protocol}://${host}${request.url || ""}`;
 }
 
-function logIncomingRequest(request, rawBody) {
-  console.log("[childos-decision][debug] Incoming request URL", getIncomingRequestUrl(request));
-  console.log("[childos-decision][debug] Incoming request headers", maskHeaders(request.headers || {}));
-  console.log("[childos-decision][debug] Incoming request body", rawBody);
+function logInfo(event, data = {}) {
+  console.log("[childos-decision]", event, data);
 }
 
-function readRequestBody(request) {
-  return new Promise((resolve, reject) => {
-    let rawBody = "";
-
-    request.on("data", (chunk) => {
-      rawBody += chunk;
-      if (rawBody.length > 12000) {
-        reject(new Error("Request body too large"));
-        request.destroy();
-      }
-    });
-
-    request.on("end", () => resolve(rawBody));
-    request.on("error", reject);
+function logError(error) {
+  console.error("[childos-decision] error", {
+    errorMessage: error.publicMessage || error.message,
+    status: error.status || 502,
+    agnesStatus: error.agnesStatus ?? null,
+    debug: error.debug || {}
   });
 }
 
-async function parseJsonBody(request) {
-  const rawBody = await readRequestBody(request);
-  try {
-    return {
-      rawBody,
-      body: rawBody ? JSON.parse(rawBody) : {}
-    };
-  } catch (error) {
-    throw new AgnesError("Invalid JSON body", {
-      status: 400,
-      rawResponse: rawBody
-    });
+function logDebug(event, data = {}) {
+  if (DEBUG_AGNES) {
+    console.log("[childos-decision][debug]", event, data);
   }
-}
-
-function sendJson(response, statusCode, payload) {
-  response.statusCode = statusCode;
-  response.setHeader("Content-Type", "application/json; charset=utf-8");
-  response.setHeader("Cache-Control", "no-store");
-  response.end(JSON.stringify(payload));
 }
 
 function extractTextFromAgnes(payload) {
@@ -222,7 +202,7 @@ function normalizeCard(rawCard) {
   return card;
 }
 
-function parseAgnesCard(payload) {
+function parseAgnesCard(payload, rawResponse, status) {
   if (payload && typeof payload === "object" && REQUIRED_CARD_KEYS.every((key) => key in payload)) {
     return normalizeCard(payload);
   }
@@ -233,7 +213,11 @@ function parseAgnesCard(payload) {
 
   const text = extractTextFromAgnes(payload).trim();
   if (!text) {
-    throw new Error("Agnes response is empty");
+    throw new AgnesError("Agnes response is empty", {
+      status,
+      agnesStatus: status,
+      rawResponse
+    });
   }
 
   const cleanedText = text
@@ -246,8 +230,9 @@ function parseAgnesCard(payload) {
     return normalizeCard(JSON.parse(cleanedText));
   } catch (error) {
     throw new AgnesError("Agnes response could not be parsed as the required JSON card", {
-      status: 200,
-      rawResponse: cleanedText
+      status,
+      agnesStatus: status,
+      rawResponse
     });
   }
 }
@@ -270,7 +255,16 @@ async function callAgnes(scene) {
     "X-API-Key": AGNES_API_KEY
   };
 
-  logAgnesRequest(AGNES_API_URL, requestHeaders, requestBody);
+  logInfo("Agnes request started", {
+    model: AGNES_MODEL,
+    sceneLength: scene.length,
+    debug: DEBUG_AGNES
+  });
+  logDebug("Agnes request", {
+    url: AGNES_API_URL,
+    headers: maskHeaders(requestHeaders),
+    body: JSON.stringify(requestBody)
+  });
 
   let agnesResponse;
   try {
@@ -281,75 +275,104 @@ async function callAgnes(scene) {
     });
   } catch (error) {
     throw new AgnesError("Agnes fetch failed before receiving a response", {
-      status: 502,
-      rawResponse: "",
-      fetchError: error.message,
-      cause: error.cause?.message,
-      ...getAgnesConfig()
+      debug: { fetchError: error.message }
     });
   }
 
-  const rawAgnesBody = await agnesResponse.text();
-  logAgnesResponse(agnesResponse.status, rawAgnesBody);
+  const rawResponse = await agnesResponse.text();
+  logInfo("Agnes response received", {
+    status: agnesResponse.status,
+    ok: agnesResponse.ok
+  });
+  logDebug("Agnes raw response", {
+    status: agnesResponse.status,
+    text: rawResponse
+  });
 
-  let agnesPayload = null;
-
+  let payload = null;
   try {
-    agnesPayload = rawAgnesBody ? JSON.parse(rawAgnesBody) : null;
+    payload = rawResponse ? JSON.parse(rawResponse) : null;
   } catch (error) {
-    agnesPayload = rawAgnesBody;
+    payload = rawResponse;
   }
 
   if (!agnesResponse.ok) {
     throw new AgnesError(`Agnes API returned HTTP ${agnesResponse.status}`, {
       status: agnesResponse.status,
-      statusText: agnesResponse.statusText,
-      rawResponse: rawAgnesBody,
-      ...getAgnesConfig()
+      agnesStatus: agnesResponse.status,
+      rawResponse,
+      debug: { statusText: agnesResponse.statusText }
     });
   }
 
-  try {
-    return parseAgnesCard(agnesPayload);
-  } catch (error) {
-    throw new AgnesError(error.message, {
-      status: agnesResponse.status,
-      rawResponse: rawAgnesBody
-    });
+  return parseAgnesCard(payload, rawResponse, agnesResponse.status);
+}
+
+function buildErrorPayload(error) {
+  const payload = {
+    source: "error",
+    error: "AI decision unavailable",
+    detail: error.publicMessage || error.message,
+    errorMessage: error.publicMessage || error.message,
+    status: error.status || 502,
+    agnesStatus: error.agnesStatus ?? null
+  };
+
+  if (DEBUG_AGNES) {
+    payload.debug = {
+      status: error.status || 502,
+      agnesStatus: error.agnesStatus ?? null,
+      raw_response: error.rawResponse || "",
+      message: error.message,
+      details: error.debug || {}
+    };
   }
+
+  return payload;
 }
 
 module.exports = async function handler(request, response) {
   if (request.method !== "POST") {
     response.setHeader("Allow", "POST");
     return sendJson(response, 405, {
+      source: "error",
       error: "Method not allowed",
-      raw_response: "",
-      status: 405
+      detail: "Only POST requests are supported",
+      errorMessage: "Only POST requests are supported",
+      status: 405,
+      agnesStatus: null
     });
   }
 
   try {
     const { body, rawBody } = await parseJsonBody(request);
-    logIncomingRequest(request, rawBody);
     const scene = typeof body.scene === "string" ? body.scene.trim() : "";
+
+    logInfo("Incoming decision request", {
+      sceneLength: scene.length,
+      bodyLength: rawBody.length
+    });
+    logDebug("Incoming request", {
+      url: getIncomingRequestUrl(request),
+      headers: maskHeaders(request.headers || {}),
+      body: rawBody
+    });
 
     if (!scene) {
       return sendJson(response, 400, {
+        source: "error",
         error: "scene is required",
-        raw_response: rawBody,
-        status: 400
+        detail: "Please provide a scene before generating a decision",
+        errorMessage: "Please provide a scene before generating a decision",
+        status: 400,
+        agnesStatus: null
       });
     }
 
     const card = await callAgnes(scene);
     return sendJson(response, 200, { source: "ai", card });
   } catch (error) {
-    logAgnesError(error);
-    return sendJson(response, 502, {
-      error: error.message,
-      raw_response: error.rawResponse || "",
-      status: error.status || 502
-    });
+    logError(error);
+    return sendJson(response, error.status || 502, buildErrorPayload(error));
   }
 };

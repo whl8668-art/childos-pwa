@@ -34,6 +34,7 @@ v2.5：AI 接入 + 目标提醒版。
 - `AGNES_API_KEY`
 - `AGNES_API_URL`
 - `AGNES_MODEL`
+- `DEBUG_AGNES`：可选，默认关闭时只保留状态摘要；临时排查接口问题时设为 `true`，会输出脱敏 headers、request body 和 Agnes raw response。
 
 `AGNES_API_KEY` 只在服务端读取，不能写入 `index.html` 或任何前端代码。
 
